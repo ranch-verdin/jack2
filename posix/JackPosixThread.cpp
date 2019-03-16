@@ -24,6 +24,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #include "JackGlobals.h"
 #include <string.h> // for memset
 #include <unistd.h> // for _POSIX_PRIORITY_SCHEDULING check
+#include <sched.h>
 
 //#define JACK_SCHED_POLICY SCHED_RR
 #define JACK_SCHED_POLICY SCHED_FIFO
@@ -129,6 +130,17 @@ int JackPosixThread::StartImp(jack_native_thread_t* thread, int priority, int re
 
         if ((res = pthread_attr_setschedparam(&attributes, &rt_param))) {
             jack_error("Cannot set scheduling priority for RT thread res = %d", res);
+            return -1;
+        }
+
+        cpu_set_t cpuset;
+        CPU_ZERO(&cpuset);
+        CPU_SET(1, &cpuset);
+        CPU_SET(2, &cpuset);
+        CPU_SET(3, &cpuset);
+
+        if ((res = pthread_attr_setaffinity_np(&attributes, sizeof(cpu_set_t), &cpuset))) {
+            jack_error("Cannot set affinity for RT thread res = %d", res);
             return -1;
         }
 
@@ -238,6 +250,17 @@ int JackPosixThread::AcquireRealTimeImp(jack_native_thread_t thread, int priorit
         jack_error("Cannot use real-time scheduling (RR/%d)"
                    "(%d: %s)", rtparam.sched_priority, res,
                    strerror(res));
+        return -1;
+    }
+
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(1, &cpuset);
+    CPU_SET(2, &cpuset);
+    CPU_SET(3, &cpuset);
+
+    if ((res = pthread_setaffinity_np(thread, sizeof(cpu_set_t), &cpuset))) {
+        jack_error("Cannot set affinity for RT thread res = %d", res);
         return -1;
     }
     return 0;
